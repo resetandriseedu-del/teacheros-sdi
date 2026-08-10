@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>TeacherOS — SDI Case Manager</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'DM Sans','Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:#0f172a;-webkit-font-smoothing:antialiased}
+button,input,textarea,select{font-family:inherit}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+@keyframes bounce{0%,80%,100%{transform:translateY(0);opacity:.4}40%{transform:translateY(-6px);opacity:1}}
+.fade-up{animation:fadeUp .2s ease forwards}
+
+/* ── LAYOUT ── */
+#app{height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#topbar{background:linear-gradient(135deg,#1e293b,#0f172a);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;box-shadow:0 2px 12px rgba(0,0,0,.3)}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.logo-icon{width:34px;height:34px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:17px;box-shadow:0 3px 10px rgba(99,102,241,.5)}
+.logo-name{color:#f8fafc;font-weight:800;font-size:1rem;letter-spacing:-0.02em}
+.logo-sub{color:#64748b;font-size:.65rem;text-transform:uppercase;letter-spacing:.08em;margin-left:2px}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.api-status{display:flex;align-items:center;gap:5px;font-size:.68rem;color:#94a3b8}
+.api-dot{width:7px;height:7px;border-radius:50%;background:#22c55e}
+.api-dot.err{background:#ef4444}
+.api-dot.warn{background:#f59e0b}
+.student-count-badge{background:rgba(99,102,241,.2);border:1px solid rgba(99,102,241,.3);color:#a5b4fc;padding:3px 10px;border-radius:20px;font-size:.68rem;font-weight:700}
+
+/* ── TABS ── */
+#tabs{background:#fff;border-bottom:2px solid #e2e8f0;display:flex;padding:0 20px;flex-shrink:0;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+.tab{padding:12px 18px;font-size:.8rem;font-weight:700;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.tab:hover{color:#475569}
+.tab.active{color:#6366f1;border-bottom-color:#6366f1}
+.tab-badge{background:#6366f1;color:#fff;border-radius:10px;padding:1px 6px;font-size:.6rem;font-weight:800}
+
+/* ── MAIN CONTENT ── */
+#content{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.panel{display:none;flex:1;overflow:hidden}
+.panel.active{display:flex;flex-direction:column}
+
+/* ── SHARED UI ── */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.8rem;font-weight:700;transition:all .15s}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;box-shadow:0 3px 10px rgba(99,102,241,.35)}
+.btn-primary:hover{box-shadow:0 4px 16px rgba(99,102,241,.5);transform:translateY(-1px)}
+.btn-green{background:linear-gradient(135deg,#166534,#15803d);color:#fff;box-shadow:0 3px 10px rgba(22,101,52,.3)}
+.btn-green:hover{transform:translateY(-1px)}
+.btn-outline{background:#fff;color:#374151;border:1.5px solid #e2e8f0}
+.btn-outline:hover{border-color:#6366f1;color:#6366f1}
+.btn-danger{background:#fff;color:#dc2626;border:1.5px solid #fecaca}
+.btn-danger:hover{background:#fef2f2}
+.btn-sm{padding:5px 10px;font-size:.72rem}
+.btn:disabled{opacity:.5;cursor:default;transform:none!important}
+.card{background:#fff;border-radius:12px;border:1.5px solid #e2e8f0;box-shadow:0 1px 4px rgba(0,0,0,.05)}
+.section-title{font-size:.7rem;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:.08em;margin-bottom:12px}
+input[type=text],input[type=date],textarea,select{width:100%;border:1.5px solid #e2e8f0;border-radius:8px;padding:9px 12px;font-size:.83rem;color:#1e293b;outline:none;transition:border-color .15s;background:#fff}
+input:focus,textarea:focus,select:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+label{display:block;font-size:.75rem;font-weight:700;color:#374151;margin-bottom:4px}
+.form-group{margin-bottom:14px}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-header{padding:20px 24px 16px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between}
+.modal-title{font-weight:800;font-size:1rem;color:#0f172a}
+.modal-body{padding:20px 24px}
+.modal-footer{padding:16px 24px;border-top:1px solid #f1f5f9;display:flex;justify-content:flex-end;gap:8px}
+.close-btn{background:none;border:none;cursor:pointer;color:#94a3b8;font-size:1.3rem;line-height:1;padding:2px}
+.close-btn:hover{color:#374151}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:.68rem;font-weight:700}
+.chip-green{background:#dcfce7;color:#166534}
+.chip-blue{background:#dbeafe;color:#1e40af}
+.chip-purple{background:#ede9fe;color:#5b21b6}
+.chip-orange{background:#ffedd5;color:#9a3412}
+.chip-gray{background:#f1f5f9;color:#475569}
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 20px;text-align:center;color:#94a3b8}
+.empty-state .es-icon{font-size:2.5rem;margin-bottom:12px;opacity:.5}
+.empty-state h3{font-size:.95rem;font-weight:700;color:#475569;margin-bottom:6px}
+.empty-state p{font-size:.8rem;line-height:1.6;max-width:280px}
+.toast{position:fixed;bottom:24px;right:24px;background:#1e293b;color:#f8fafc;padding:10px 18px;border-radius:10px;font-size:.8rem;font-weight:600;z-index:200;box-shadow:0 8px 24px rgba(0,0,0,.3);animation:fadeUp .2s ease}
+
+/* ── TAB 1: CASELOAD ── */
+#caseload-panel{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.caseload-toolbar{padding:16px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;background:#fff;border-bottom:1px solid #f1f5f9;flex-shrink:0}
+.search-wrap{position:relative;flex:1;max-width:320px}
+.search-wrap input{padding-left:34px}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:#94a3b8;font-size:.9rem}
+.student-grid{flex:1;overflow-y:auto;padding:20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;align-content:start}
+.student-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px;cursor:pointer;transition:all .15s;position:relative}
+.student-card:hover{border-color:#a5b4fc;box-shadow:0 4px 16px rgba(99,102,241,.12);transform:translateY(-1px)}
+.student-card.selected{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15)}
+.sc-top{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.sc-avatar{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.95rem;color:#fff;flex-shrink:0}
+.sc-name{font-weight:800;font-size:.9rem;color:#0f172a;line-height:1.2}
+.sc-disability{font-size:.7rem;color:#64748b;margin-top:1px}
+.sc-goals{margin-bottom:10px}
+.sc-goal-item{font-size:.72rem;color:#374151;line-height:1.5;padding:4px 8px;background:#f8fafc;border-radius:6px;margin-bottom:4px;border-left:3px solid #6366f1}
+.sc-goal-area{font-weight:700;color:#6366f1;margin-right:4px}
+.sc-footer{display:flex;align-items:center;justify-content:space-between;margin-top:10px;padding-top:10px;border-top:1px solid #f1f5f9}
+.sc-review{font-size:.68rem;color:#94a3b8}
+.sc-review.soon{color:#dc2626;font-weight:700}
+.sc-actions{display:flex;gap:6px}
+.icon-btn{background:none;border:none;cursor:pointer;padding:4px;border-radius:6px;color:#94a3b8;font-size:.9rem;transition:all .15s}
+.icon-btn:hover{background:#f1f5f9;color:#374151}
+
+/* ── TAB 2: SDI PLANNER ── */
+#planner-panel{flex:1;overflow:hidden;display:flex;gap:0}
+.planner-sidebar{width:260px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;display:flex;flex-direction:column;overflow:hidden}
+.planner-sidebar-header{padding:14px 16px;border-bottom:1px solid #f1f5f9;flex-shrink:0}
+.planner-sidebar-title{font-size:.72rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px}
+.student-selector{flex:1;overflow-y:auto;padding:8px}
+.student-select-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:all .12s;border:1.5px solid transparent;margin-bottom:4px}
+.student-select-item:hover{background:#f8fafc;border-color:#e2e8f0}
+.student-select-item.active{background:#eef2ff;border-color:#a5b4fc}
+.ss-avatar{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78rem;color:#fff;flex-shrink:0}
+.ss-name{font-size:.8rem;font-weight:700;color:#374151;line-height:1.2}
+.ss-goals{font-size:.65rem;color:#94a3b8;line-height:1.3}
+.planner-main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.planner-context{padding:14px 18px;background:#fff;border-bottom:1px solid #e2e8f0;flex-shrink:0}
+.context-row{display:flex;gap:10px;align-items:flex-end}
+.context-field{flex:1}
+.planner-mode-bar{padding:10px 18px;background:#f8fafc;border-bottom:1px solid #e2e8f0;display:flex;gap:6px;flex-wrap:wrap;flex-shrink:0}
+.mode-btn{padding:5px 12px;border-radius:20px;border:1.5px solid #e2e8f0;background:#fff;font-size:.72rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .12s}
+.mode-btn:hover{border-color:#a5b4fc;color:#6366f1}
+.mode-btn.active{background:#eef2ff;border-color:#6366f1;color:#6366f1}
+.chat-messages{flex:1;overflow-y:auto;padding:18px}
+.chat-input-area{padding:12px 18px;background:#fff;border-top:1px solid #e2e8f0;flex-shrink:0}
+.chat-row{display:flex;gap:8px;align-items:flex-end;margin-bottom:10px}
+.chat-context-banner{background:#eef2ff;border:1.5px solid #c7d2fe;border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:.78rem;color:#3730a3;line-height:1.6}
+.chat-context-banner strong{color:#312e81;display:block;margin-bottom:3px;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+.msg{max-width:82%;animation:fadeUp .2s ease}
+.msg-user{margin-left:auto}
+.msg-bubble{padding:10px 14px;border-radius:12px;font-size:.85rem;line-height:1.65}
+.msg-bubble.user{background:#eef2ff;border:1.5px solid #c7d2fe;color:#1e293b;border-radius:14px 4px 14px 14px}
+.msg-bubble.ai{background:#fff;border:1.5px solid #e2e8f0;color:#1e293b;border-radius:4px 14px 14px 14px;position:relative}
+.msg-save-btn{position:absolute;top:6px;right:8px;background:#f1f5f9;border:none;border-radius:6px;padding:3px 8px;font-size:.62rem;font-weight:700;color:#64748b;cursor:pointer;transition:all .12s}
+.msg-save-btn:hover{background:#dcfce7;color:#166534}
+.msg-save-btn.saved{background:#dcfce7;color:#166534}
+.ai-avatar{width:28px;height:28px;border-radius:7px;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;margin-top:2px}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:12px 16px}
+.dot{width:7px;height:7px;border-radius:50%;background:#6366f1;animation:bounce 1.2s ease-in-out infinite}
+.msg-content h2{font-size:.92rem;font-weight:800;margin:12px 0 5px;color:#0f172a}
+.msg-content h3{font-size:.8rem;font-weight:700;margin:10px 0 4px;color:#374151;text-transform:uppercase;letter-spacing:.04em}
+.msg-content p{margin:3px 0;font-size:.85rem;line-height:1.7;color:#374151}
+.msg-content ul,.msg-content ol{margin:6px 0 10px 18px;font-size:.85rem;color:#374151}
+.msg-content li{margin-bottom:4px;line-height:1.65}
+.msg-content .sdi-field{display:flex;gap:8px;margin:8px 0 4px;padding:7px 12px;background:#f8faff;border-left:3px solid #6366f1;border-radius:0 8px 8px 0}
+.msg-content .sdi-icon{font-size:.95rem;flex-shrink:0}
+.msg-content .sdi-text{font-size:.85rem;color:#1f2937;line-height:1.6}
+.msg-content strong{font-weight:700}
+.msg-content hr{border:none;border-top:1px solid #e2e8f0;margin:10px 0}
+.msg-content table{width:100%;border-collapse:collapse;font-size:.78rem;margin:8px 0}
+.msg-content th{background:#eef2ff;border:1px solid #c7d2fe;padding:6px 9px;text-align:left;font-weight:700;color:#1e293b}
+.msg-content td{border:1px solid #e2e8f0;padding:6px 9px;color:#374151;vertical-align:top}
+
+/* ── TAB 3: SAVED PLANS ── */
+#plans-panel{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.plans-toolbar{padding:14px 20px;background:#fff;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-shrink:0}
+.plans-list{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px}
+.plan-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:all .15s}
+.plan-card:hover{border-color:#a5b4fc}
+.plan-card-header{padding:14px 16px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;cursor:pointer}
+.plan-card-meta{flex:1}
+.plan-card-title{font-weight:800;font-size:.88rem;color:#0f172a;margin-bottom:4px}
+.plan-card-sub{font-size:.72rem;color:#94a3b8;line-height:1.5}
+.plan-card-actions{display:flex;gap:6px;flex-shrink:0}
+.plan-card-body{padding:0 16px 14px;display:none;border-top:1px solid #f1f5f9;margin-top:0}
+.plan-card-body.open{display:block;padding-top:14px}
+.plan-card-notes{margin-top:12px}
+.plan-card-notes textarea{min-height:60px;font-size:.78rem}
+
+/* ── TAB 4: PROGRESS LOG ── */
+#progress-panel{flex:1;overflow:hidden;display:flex;flex-direction:column}
+.progress-toolbar{padding:14px 20px;background:#fff;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:12px;flex-shrink:0;flex-wrap:wrap}
+.progress-layout{flex:1;overflow:hidden;display:flex}
+.progress-student-list{width:220px;flex-shrink:0;background:#fff;border-right:1px solid #e2e8f0;overflow-y:auto}
+.progress-student-item{padding:11px 14px;cursor:pointer;border-bottom:1px solid #f1f5f9;transition:all .12s}
+.progress-student-item:hover{background:#f8fafc}
+.progress-student-item.active{background:#eef2ff}
+.psi-name{font-size:.82rem;font-weight:700;color:#374151}
+.psi-entries{font-size:.68rem;color:#94a3b8;margin-top:2px}
+.progress-detail{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px}
+.log-entry-form{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px}
+.log-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.log-form-grid .span2{grid-column:1/-1}
+.log-entries-list{display:flex;flex-direction:column;gap:8px}
+.log-entry{background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:12px}
+.le-date{font-size:.72rem;color:#94a3b8;white-space:nowrap;padding-top:2px;min-width:72px}
+.le-body{flex:1}
+.le-goal{font-size:.72rem;font-weight:700;color:#6366f1;margin-bottom:3px}
+.le-score{font-size:.82rem;font-weight:800;color:#0f172a;margin-bottom:3px}
+.le-notes{font-size:.75rem;color:#64748b;line-height:1.5}
+.le-delete{background:none;border:none;cursor:pointer;color:#fca5a5;font-size:.85rem;padding:2px;flex-shrink:0}
+.le-delete:hover{color:#dc2626}
+.progress-chart{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:16px}
+.chart-title{font-size:.75rem;font-weight:800;color:#374151;margin-bottom:12px;text-transform:uppercase;letter-spacing:.05em}
+.chart-bars{display:flex;align-items:flex-end;gap:6px;height:80px}
+.chart-bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px}
+.chart-bar{background:linear-gradient(180deg,#6366f1,#8b5cf6);border-radius:4px 4px 0 0;width:100%;min-height:4px;transition:height .3s ease}
+.chart-label{font-size:.6rem;color:#94a3b8;text-align:center;line-height:1.2}
+.chart-val{font-size:.62rem;color:#6366f1;font-weight:700}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div id="topbar">
+    <div class="topbar-left">
+      <div class="logo-icon">🧠</div>
+      <div>
+        <div class="logo-name">TeacherOS <span class="logo-sub">SDI Case Manager</span></div>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="api-status"><div class="api-dot" id="api-dot"></div><span id="api-label">Checking API…</span></div>
+      <div class="student-count-badge" id="student-count-badge">0 students</div>
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tabs">
+    <div class="tab active" data-tab="caseload">👥 My Caseload <span class="tab-badge" id="tab-badge-caseload">0</span></div>
+    <div class="tab" data-tab="planner">🧠 SDI Planner</div>
+    <div class="tab" data-tab="plans">📋 Saved Plans <span class="tab-badge" id="tab-badge-plans">0</span></div>
+    <div class="tab" data-tab="progress">📊 Progress Log</div>
+  </div>
+
+  <!-- CONTENT -->
+  <div id="content">
+
+    <!-- ══ TAB 1: CASELOAD ══ -->
+    <div class="panel active" id="panel-caseload">
+      <div id="caseload-panel">
+        <div class="caseload-toolbar">
+          <div class="search-wrap">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="student-search" placeholder="Search students…"/>
+          </div>
+          <button class="btn btn-primary" onclick="openAddStudent()">+ Add Student</button>
+        </div>
+        <div class="student-grid" id="student-grid">
+          <div class="empty-state" id="student-empty">
+            <div class="es-icon">👥</div>
+            <h3>No students yet</h3>
+            <p>Add your caseload students to get started. Their IEP info will power all AI planning.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 2: PLANNER ══ -->
+    <div class="panel" id="panel-planner">
+      <div id="planner-panel">
+        <!-- Sidebar: student selector -->
+        <div class="planner-sidebar">
+          <div class="planner-sidebar-header">
+            <div class="planner-sidebar-title">Select Student(s)</div>
+            <div style="font-size:.68rem;color:#94a3b8">Click to load IEP context into AI</div>
+          </div>
+          <div class="student-selector" id="planner-student-list">
+            <div style="padding:20px;text-align:center;color:#94a3b8;font-size:.75rem">Add students in the Caseload tab first</div>
+          </div>
+        </div>
+        <!-- Main chat -->
+        <div class="planner-main">
+          <div class="planner-context">
+            <div class="context-row">
+              <div class="context-field">
+                <label>Unit / Lesson Topic</label>
+                <input type="text" id="unit-input" placeholder="e.g. Argumentative writing — week 2"/>
+              </div>
+              <div class="context-field" style="max-width:180px">
+                <label>Class Period Length</label>
+                <select id="period-select">
+                  <option value="75 minutes">75 minutes</option>
+                  <option value="80 minutes" selected>80 minutes</option>
+                  <option value="90 minutes">90 minutes</option>
+                  <option value="45 minutes">45 minutes</option>
+                  <option value="60 minutes">60 minutes</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="planner-mode-bar" id="mode-bar">
+            <span style="font-size:.68rem;color:#94a3b8;font-weight:700;align-self:center">Quick plan:</span>
+            <button class="mode-btn" onclick="setMode('lesson')">📋 SDI Lesson Plan</button>
+            <button class="mode-btn" onclick="setMode('weekly')">📅 Weekly Schedule</button>
+            <button class="mode-btn" onclick="setMode('materials')">🔧 Generate Materials</button>
+            <button class="mode-btn" onclick="setMode('data')">📊 Data Collection Tool</button>
+            <button class="mode-btn" onclick="setMode('coteacher')">🗣️ Script for Co-Teacher</button>
+            <button class="mode-btn" onclick="setMode('stations')">🏫 Station Setup</button>
+          </div>
+          <div class="chat-messages" id="chat-messages">
+            <div class="chat-context-banner" id="context-banner">
+              <strong>🧠 AI Context</strong>
+              Select a student from the left and enter your lesson/unit topic. The AI will know their IEP goals before you type a word.
+            </div>
+          </div>
+          <div class="chat-input-area">
+            <div style="display:flex;gap:8px;align-items:flex-end">
+              <textarea id="chat-input" rows="2" placeholder="Type your question or use a quick plan button above…" style="flex:1;resize:none;min-height:44px"></textarea>
+              <button class="btn btn-primary" id="send-btn" onclick="sendChat()" style="height:44px;padding:0 18px">Send ↑</button>
+            </div>
+            <div style="font-size:.63rem;color:#cbd5e1;text-align:center;margin-top:6px">Enter to send · Shift+Enter for new line · AI responses — review before use with students</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 3: SAVED PLANS ══ -->
+    <div class="panel" id="panel-plans">
+      <div id="plans-panel">
+        <div class="plans-toolbar">
+          <div style="font-weight:800;font-size:.85rem;color:#0f172a">Saved SDI Plans</div>
+          <div style="display:flex;gap:8px;margin-left:auto">
+            <select id="plans-filter-student" class="btn btn-outline btn-sm" style="width:auto;padding:5px 10px" onchange="renderPlans()">
+              <option value="">All Students</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="exportAllPlans()">⬇ Export All (Word)</button>
+          </div>
+        </div>
+        <div class="plans-list" id="plans-list">
+          <div class="empty-state">
+            <div class="es-icon">📋</div>
+            <h3>No saved plans yet</h3>
+            <p>Use the SDI Planner tab and click "Save Plan" on any AI response to save it here.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ TAB 4: PROGRESS LOG ══ -->
+    <div class="panel" id="panel-progress">
+      <div id="progress-panel">
+        <div class="progress-toolbar">
+          <div style="font-weight:800;font-size:.85rem;color:#0f172a">Progress Log</div>
+          <button class="btn btn-outline btn-sm" onclick="exportProgressReport()" style="margin-left:auto">⬇ Export Report (Word)</button>
+        </div>
+        <div class="progress-layout">
+          <div class="progress-student-list" id="progress-student-list">
+            <div style="padding:14px;font-size:.72rem;color:#94a3b8;text-align:center">Add students first</div>
+          </div>
+          <div class="progress-detail" id="progress-detail">
+            <div class="empty-state">
+              <div class="es-icon">📊</div>
+              <h3>Select a student</h3>
+              <p>Choose a student from the left to log progress and view their data.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ══ STUDENT MODAL ══ -->
+<div class="modal-overlay" id="student-modal" style="display:none">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="student-modal-title">Add Student</div>
+      <button class="close-btn" onclick="closeStudentModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="edit-student-id"/>
+      <div class="form-group">
+        <label>First Name *</label>
+        <input type="text" id="s-name" placeholder="e.g. Marcus"/>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="form-group">
+          <label>Disability Category</label>
+          <select id="s-disability">
+            <option value="">Select…</option>
+            <option>Specific Learning Disability</option>
+            <option>Other Health Impairment</option>
+            <option>Emotional Disturbance</option>
+            <option>Autism Spectrum Disorder</option>
+            <option>Speech/Language Impairment</option>
+            <option>Intellectual Disability</option>
+            <option>Developmental Delay</option>
+            <option>Multiple Disabilities</option>
+            <option>Traumatic Brain Injury</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Annual Review Date</label>
+          <input type="date" id="s-review-date"/>
+        </div>
+      </div>
+      <div style="font-size:.72rem;font-weight:800;color:#374151;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px;margin-top:4px">IEP Goals</div>
+      <div id="goals-container"></div>
+      <button class="btn btn-outline btn-sm" onclick="addGoalField()" style="margin-bottom:14px">+ Add Goal</button>
+      <div class="form-group">
+        <label>Accommodations (comma-separated)</label>
+        <input type="text" id="s-accommodations" placeholder="e.g. Extended time, Preferential seating, Read-aloud"/>
+      </div>
+      <div class="form-group">
+        <label>Current SDI Focus / Notes</label>
+        <textarea id="s-notes" rows="2" placeholder="Where is this student in their goal progression? Any context the AI should know?"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeStudentModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStudent()">Save Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONFIRM DELETE MODAL ══ -->
+<div class="modal-overlay" id="confirm-modal" style="display:none">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-header">
+      <div class="modal-title">Confirm Delete</div>
+      <button class="close-btn" onclick="closeConfirmModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:.85rem;color:#374151;line-height:1.65" id="confirm-message">Are you sure?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeConfirmModal()">Cancel</button>
+      <button class="btn btn-danger" id="confirm-action-btn">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// CONFIG — update API_URL after Vercel deploy
+// ══════════════════════════════════════════════
+const API_URL = 'YOUR_VERCEL_URL_HERE/api/chat';
+// Example: const API_URL = 'https://teacheros-sdi.vercel.app/api/chat';
+
+// ══════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════
+let students = [];
+let plans = [];
+let progressLog = [];
+let selectedPlannerStudents = [];
+let chatHistory = [];
+let currentProgressStudent = null;
+let activeMode = null;
+let editingStudentId = null;
+let confirmCallback = null;
+
+const AVATAR_COLORS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316','#84cc16'];
+
+// ══════════════════════════════════════════════
+// PERSISTENCE
+// ══════════════════════════════════════════════
+function save() {
+  localStorage.setItem('tos_students', JSON.stringify(students));
+  localStorage.setItem('tos_plans', JSON.stringify(plans));
+  localStorage.setItem('tos_progress', JSON.stringify(progressLog));
+}
+
+function load() {
+  try { students = JSON.parse(localStorage.getItem('tos_students') || '[]'); } catch { students = []; }
+  try { plans = JSON.parse(localStorage.getItem('tos_plans') || '[]'); } catch { plans = []; }
+  try { progressLog = JSON.parse(localStorage.getItem('tos_progress') || '[]'); } catch { progressLog = []; }
+}
+
+// ══════════════════════════════════════════════
+// TABS
+// ══════════════════════════════════════════════
+document.querySelectorAll('.tab').forEach(t => {
+  t.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('panel-' + t.dataset.tab).classList.add('active');
+    if (t.dataset.tab === 'planner') renderPlannerSidebar();
+    if (t.dataset.tab === 'plans') renderPlans();
+    if (t.dataset.tab === 'progress') renderProgressStudentList();
+  });
+});
+
+// ══════════════════════════════════════════════
+// API STATUS CHECK
+// ══════════════════════════════════════════════
+async function checkAPI() {
+  const dot = document.getElementById('api-dot');
+  const label = document.getElementById('api-label');
+  if (API_URL.includes('YOUR_VERCEL_URL_HERE')) {
+    dot.className = 'api-dot warn';
+    label.textContent = 'API not configured';
+    return;
+  }
+  try {
+    const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], system: 'Reply with: ok' }) });
+    if (r.ok) { dot.className = 'api-dot'; label.textContent = 'AI connected'; }
+    else { dot.className = 'api-dot err'; label.textContent = 'API error'; }
+  } catch {
+    dot.className = 'api-dot err';
+    label.textContent = 'Cannot reach API';
+  }
+}
+
+// ══════════════════════════════════════════════
+// STUDENT HELPERS
+// ══════════════════════════════════════════════
+function getAvatarColor(name) {
+  let h = 0;
+  for (let c of name) h = c.charCodeAt(0) + h * 31;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function getInitials(name) {
+  return name.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  return Math.ceil((new Date(dateStr) - new Date()) / 86400000);
+}
+
+function buildStudentIEPContext(student) {
+  let ctx = `Student: ${student.name}\n`;
+  if (student.disability) ctx += `Disability: ${student.disability}\n`;
+  if (student.goals && student.goals.length > 0) {
+    ctx += `Active IEP Goals:\n`;
+    student.goals.forEach((g, i) => {
+      ctx += `  ${i + 1}. [${g.area}] ${g.text}\n`;
+    });
+  }
+  if (student.accommodations) ctx += `Accommodations: ${student.accommodations}\n`;
+  if (student.notes) ctx += `Current SDI Focus: ${student.notes}\n`;
+  return ctx;
+}
+
+function buildSystemPrompt() {
+  const unit = document.getElementById('unit-input').value.trim();
+  const period = document.getElementById('period-select').value;
+
+  let studentContext = '';
+  if (selectedPlannerStudents.length > 0) {
+    studentContext = selectedPlannerStudents.map(id => {
+      const s = students.find(x => x.id === id);
+      return s ? buildStudentIEPContext(s) : '';
+    }).filter(Boolean).join('\n---\n');
+  }
+
+  return `You are the SDI Planning Assistant inside TeacherOS, serving a Special Education Case Manager and 8th Grade ELA Co-Teacher at Antioch Middle School, Metro Nashville Public Schools (MNPS), Tennessee.
+
+TEACHER CONTEXT:
+- She manages a caseload of students with active IEPs
+- She co-teaches 8th grade ELA with a general education teacher
+- Tennessee IDEA compliance framework
+- Uses TNPulse/PULSE for IEP documentation, Schoology LMS, Microsoft 365
+- Block scheduling: ${period} periods
+
+${studentContext ? `STUDENT IEP CONTEXT FOR THIS SESSION:\n---\n${studentContext}\n---\n` : 'No student selected — provide general SDI guidance for 8th grade ELA co-teaching.\n'}
+${unit ? `CURRENT UNIT/LESSON: ${unit}\n` : ''}
+
+YOUR ROLE:
+You help this teacher plan, document, and deliver Specially Designed Instruction (SDI) embedded in co-taught ELA lessons. You know:
+1. IEP goal mapping to ELA content (literary analysis, argumentative writing, informational text, Socratic seminar, grammar, vocabulary, TCAP)
+2. SDI delivery: explicit instruction, CRA for literacy, CSI, schema-based instruction, graphic organizers, mnemonics
+3. Co-teaching models: One Teach/One Assist, Station Teaching, Parallel Teaching, Alternative Teaching, Team Teaching
+4. ELA disability profiles: working memory, executive function, decoding/fluency, language processing, written expression
+5. Data collection: frequency counts, accuracy tallies, rubric observations, +/- charts
+6. Tennessee compliance: SDI documentation, service logs, PWN, IEP meeting protocols, MNPS expectations
+7. SDI windows: warm-up (10 min), transition moments, independent practice, station rotations, closure
+
+SDI PLAN OUTPUT FORMAT (use this structure every time you generate a plan):
+---
+📍 SDI WINDOW: [When in the lesson]
+🎯 IEP GOAL ADDRESSED: [Goal text or paraphrase]
+🟢 SPED TEACHER DOES: [Step-by-step specific actions]
+🔵 GEN ED TEACHER DOES: [Simultaneous actions]
+🤝 CO-TEACHING MODEL: [Named model + rationale]
+📊 DATA COLLECTION: [Method + what to track + how to record]
+📎 MATERIALS NEEDED: [Specific list]
+---
+
+MATERIAL OUTPUT: When generating materials (cue cards, graphic organizers, guided notes, sentence frames), produce full ready-to-use content in clean, copyable format labeled clearly for printing or pasting into Schoology/Word.
+
+TONE: Warm, practical, IEP-literate colleague. Never vague. Always give something usable immediately. When complex, think step by step. Reference the student by name when their context is loaded.`;
+}
+
+// ══════════════════════════════════════════════
+// CASELOAD TAB
+// ══════════════════════════════════════════════
+function renderCaseload(filter = '') {
+  const grid = document.getElementById('student-grid');
+  const empty = document.getElementById('student-empty');
+  const filtered = students.filter(s => s.name.toLowerCase().includes(filter.toLowerCase()));
+
+  document.getElementById('tab-badge-caseload').textContent = students.length;
+  document.getElementById('student-count-badge').textContent = students.length + ' student' + (students.length !== 1 ? 's' : '');
+
+  if (students.length === 0) {
+    grid.innerHTML = '';
+    grid.appendChild(empty);
+    empty.style.display = 'flex';
+    return;
+  }
+
+  grid.innerHTML = filtered.map(s => {
+    const color = getAvatarColor(s.name);
+    const days = daysUntil(s.reviewDate);
+    const reviewLabel = s.reviewDate
+      ? (days < 0 ? `⚠️ Overdue ${Math.abs(days)}d` : days <= 30 ? `⚠️ Due in ${days}d` : `Review: ${new Date(s.reviewDate).toLocaleDateString()}`)
+      : 'No review date';
+    const reviewClass = days !== null && days <= 30 ? 'soon' : '';
+
+    const goalsHtml = (s.goals || []).slice(0, 2).map(g =>
+      `<div class="sc-goal-item"><span class="sc-goal-area">${g.area}:</span>${g.text.length > 80 ? g.text.slice(0, 80) + '…' : g.text}</div>`
+    ).join('') + (s.goals && s.goals.length > 2 ? `<div class="sc-goal-item" style="color:#94a3b8">+${s.goals.length - 2} more goal${s.goals.length - 2 > 1 ? 's' : ''}…</div>` : '');
+
+    return `<div class="student-card fade-up" onclick="openEditStudent('${s.id}')">
+      <div class="sc-top">
+        <div class="sc-avatar" style="background:${color}">${getInitials(s.name)}</div>
+        <div>
+          <div class="sc-name">${s.name}</div>
+          <div class="sc-disability">${s.disability || 'No disability category set'}</div>
+        </div>
+      </div>
+      <div class="sc-goals">${goalsHtml || '<div style="font-size:.72rem;color:#94a3b8;font-style:italic">No IEP goals added</div>'}</div>
+      ${s.accommodations ? `<div style="font-size:.68rem;color:#64748b;margin-bottom:8px">📋 ${s.accommodations}</div>` : ''}
+      <div class="sc-footer">
+        <div class="sc-review ${reviewClass}">${reviewLabel}</div>
+        <div class="sc-actions">
+          <button class="icon-btn" onclick="event.stopPropagation();openPlannerForStudent('${s.id}')" title="Plan SDI">🧠</button>
+          <button class="icon-btn" onclick="event.stopPropagation();openProgressForStudent('${s.id}')" title="Log Progress">📊</button>
+          <button class="icon-btn" onclick="event.stopPropagation();confirmDeleteStudent('${s.id}')" title="Delete">🗑️</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+document.getElementById('student-search').addEventListener('input', e => renderCaseload(e.target.value));
+
+function openPlannerForStudent(id) {
+  selectedPlannerStudents = [id];
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-tab="planner"]').classList.add('active');
+  document.getElementById('panel-planner').classList.add('active');
+  renderPlannerSidebar();
+  updateContextBanner();
+}
+
+function openProgressForStudent(id) {
+  currentProgressStudent = id;
+  document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(x => x.classList.remove('active'));
+  document.querySelector('[data-tab="progress"]').classList.add('active');
+  document.getElementById('panel-progress').classList.add('active');
+  renderProgressStudentList();
+  renderProgressDetail();
+}
+
+// ══════════════════════════════════════════════
+// STUDENT MODAL
+// ══════════════════════════════════════════════
+let goalFieldCount = 0;
+
+function addGoalField(area = '', text = '') {
+  goalFieldCount++;
+  const id = 'goal-' + goalFieldCount;
+  const div = document.createElement('div');
+  div.id = id;
+  div.style.cssText = 'background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:10px;padding:12px;margin-bottom:10px;position:relative';
+  div.innerHTML = `
+    <button onclick="document.getElementById('${id}').remove()" style="position:absolute;top:8px;right:8px;background:none;border:none;cursor:pointer;color:#fca5a5;font-size:.85rem">✕</button>
+    <div style="display:grid;grid-template-columns:160px 1fr;gap:8px">
+      <div class="form-group" style="margin-bottom:0">
+        <label>Goal Area</label>
+        <select class="goal-area">
+          <option ${area==='Reading Fluency'?'selected':''}>Reading Fluency</option>
+          <option ${area==='Reading Comprehension'?'selected':''}>Reading Comprehension</option>
+          <option ${area==='Written Expression'?'selected':''}>Written Expression</option>
+          <option ${area==='Academic Discussion'?'selected':''}>Academic Discussion</option>
+          <option ${area==='Vocabulary'?'selected':''}>Vocabulary</option>
+          <option ${area==='Grammar/Conventions'?'selected':''}>Grammar/Conventions</option>
+          <option ${area==='Executive Function'?'selected':''}>Executive Function</option>
+          <option ${area==='Social Communication'?'selected':''}>Social Communication</option>
+          <option ${area==='Transition'?'selected':''}>Transition</option>
+          <option ${area==='Other'?'selected':''}>Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="margin-bottom:0">
+        <label>IEP Goal Text</label>
+        <textarea class="goal-text" rows="2" placeholder="Paste or type the full IEP goal…" style="min-height:52px">${text}</textarea>
+      </div>
+    </div>`;
+  document.getElementById('goals-container').appendChild(div);
+}
+
+function openAddStudent() {
+  editingStudentId = null;
+  document.getElementById('student-modal-title').textContent = 'Add Student';
+  document.getElementById('s-name').value = '';
+  document.getElementById('s-disability').value = '';
+  document.getElementById('s-review-date').value = '';
+  document.getElementById('s-accommodations').value = '';
+  document.getElementById('s-notes').value = '';
+  document.getElementById('goals-container').innerHTML = '';
+  document.getElementById('edit-student-id').value = '';
+  goalFieldCount = 0;
+  addGoalField();
+  document.getElementById('student-modal').style.display = 'flex';
+}
+
+function openEditStudent(id) {
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  editingStudentId = id;
+  document.getElementById('student-modal-title').textContent = 'Edit Student — ' + s.name;
+  document.getElementById('s-name').value = s.name;
+  document.getElementById('s-disability').value = s.disability || '';
+  document.getElementById('s-review-date').value = s.reviewDate || '';
+  document.getElementById('s-accommodations').value = s.accommodations || '';
+  document.getElementById('s-notes').value = s.notes || '';
+  document.getElementById('goals-container').innerHTML = '';
+  document.getElementById('edit-student-id').value = id;
+  goalFieldCount = 0;
+  (s.goals || []).forEach(g => addGoalField(g.area, g.text));
+  if (!s.goals || s.goals.length === 0) addGoalField();
+  document.getElementById('student-modal').style.display = 'flex';
+}
+
+function closeStudentModal() {
+  document.getElementById('student-modal').style.display = 'none';
+}
+
+function saveStudent() {
+  const name = document.getElementById('s-name').value.trim();
+  if (!name) { showToast('Please enter a student name'); return; }
+
+  const goals = [];
+  document.querySelectorAll('#goals-container > div').forEach(div => {
+    const area = div.querySelector('.goal-area')?.value;
+    const text = div.querySelector('.goal-text')?.value.trim();
+    if (area && text) goals.push({ area, text });
+  });
+
+  const studentData = {
+    id: editingStudentId || ('s_' + Date.now()),
+    name,
+    disability: document.getElementById('s-disability').value,
+    reviewDate: document.getElementById('s-review-date').value,
+    accommodations: document.getElementById('s-accommodations').value.trim(),
+    notes: document.getElementById('s-notes').value.trim(),
+    goals,
+    createdAt: editingStudentId ? (students.find(x => x.id === editingStudentId)?.createdAt || Date.now()) : Date.now(),
+  };
+
+  if (editingStudentId) {
+    students = students.map(s => s.id === editingStudentId ? studentData : s);
+  } else {
+    if (students.length >= 25) { showToast('Maximum 25 students reached'); return; }
+    students.push(studentData);
+  }
+
+  save();
+  closeStudentModal();
+  renderCaseload();
+  renderPlannerSidebar();
+  renderProgressStudentList();
+  updatePlansFilter();
+  showToast(editingStudentId ? `${name} updated` : `${name} added to caseload`);
+}
+
+function confirmDeleteStudent(id) {
+  const s = students.find(x => x.id === id);
+  if (!s) return;
+  document.getElementById('confirm-message').textContent = `Delete ${s.name} from your caseload? This will also remove their progress log entries. This cannot be undone.`;
+  confirmCallback = () => {
+    students = students.filter(x => x.id !== id);
+    progressLog = progressLog.filter(x => x.studentId !== id);
+    plans = plans.map(p => ({ ...p, studentIds: (p.studentIds || []).filter(x => x !== id) }));
+    save();
+    renderCaseload();
+    renderPlannerSidebar();
+    renderProgressStudentList();
+    updatePlansFilter();
+    showToast(`${s.name} removed`);
+  };
+  document.getElementById('confirm-action-btn').onclick = () => { confirmCallback(); closeConfirmModal(); };
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirm-modal').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+// SDI PLANNER TAB
+// ══════════════════════════════════════════════
+function renderPlannerSidebar() {
+  const list = document.getElementById('planner-student-list');
+  if (students.length === 0) {
+    list.innerHTML = '<div style="padding:20px;text-align:center;color:#94a3b8;font-size:.75rem">Add students in the Caseload tab first</div>';
+    return;
+  }
+  list.innerHTML = students.map(s => {
+    const color = getAvatarColor(s.name);
+    const isActive = selectedPlannerStudents.includes(s.id);
+    const goalAreas = (s.goals || []).map(g => g.area).join(', ');
+    return `<div class="student-select-item ${isActive ? 'active' : ''}" onclick="togglePlannerStudent('${s.id}')">
+      <div class="ss-avatar" style="background:${color}">${getInitials(s.name)}</div>
+      <div>
+        <div class="ss-name">${s.name}</div>
+        <div class="ss-goals">${goalAreas || 'No goals'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePlannerStudent(id) {
+  if (selectedPlannerStudents.includes(id)) {
+    selectedPlannerStudents = selectedPlannerStudents.filter(x => x !== id);
+  } else {
+    selectedPlannerStudents.push(id);
+  }
+  renderPlannerSidebar();
+  updateContextBanner();
+}
+
+function updateContextBanner() {
+  const banner = document.getElementById('context-banner');
+  const unit = document.getElementById('unit-input').value.trim();
+  if (selectedPlannerStudents.length === 0) {
+    banner.innerHTML = '<strong>🧠 AI Context</strong>Select a student from the left and enter your lesson/unit topic. The AI will know their IEP goals before you type a word.';
+    return;
+  }
+  const names = selectedPlannerStudents.map(id => students.find(s => s.id === id)?.name).filter(Boolean);
+  const goals = selectedPlannerStudents.flatMap(id => {
+    const s = students.find(x => x.id === id);
+    return (s?.goals || []).map(g => `${s.name}: ${g.area}`);
+  });
+  banner.innerHTML = `<strong>🧠 AI Context Loaded</strong>
+    <b>Students:</b> ${names.join(', ')}<br/>
+    <b>IEP Goals in Context:</b> ${goals.join(' · ') || 'none'}<br/>
+    ${unit ? `<b>Unit/Lesson:</b> ${unit}` : '<span style="color:#f59e0b">⚠ Enter a unit/lesson topic above for best results</span>'}`;
+}
+
+document.getElementById('unit-input').addEventListener('input', updateContextBanner);
+
+function setMode(mode) {
+  activeMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+
+  const modePrompts = {
+    lesson: "Build me a full SDI lesson plan for the lesson/unit above. Use the structured SDI plan format with all sections.",
+    weekly: "Build me a complete weekly SDI schedule for the unit/lesson above. Show M/W/F or daily with SDI windows, both teacher roles, and co-teaching models for each day.",
+    materials: "Generate ready-to-use SDI materials for this student's goals — include a strategy cue card, guided notes template, and sentence frames they can use independently.",
+    data: "Design a discreet, real-time data collection tool I can use during our co-taught class for this student's goal. Include exactly what counts as correct, how to record it, and how to calculate progress toward the IEP goal.",
+    coteacher: "Script a co-planning conversation I can have with my gen ed co-teacher about building SDI windows into our upcoming lessons. Frame it as additive, not disruptive, and end with a specific ask.",
+    stations: "Design a station teaching structure for our ELA class that creates natural SDI time for me every week. Include rotation timing, what students do at each station, and how I lead the SDI station.",
+  };
+
+  document.getElementById('chat-input').value = modePrompts[mode] || '';
+  document.getElementById('chat-input').focus();
+}
+
+function renderMessage(role, content) {
+  const msgs = document.getElementById('chat-messages');
+  const wrap = document.createElement('div');
+  wrap.className = 'fade-up';
+  wrap.style.cssText = `display:flex;gap:8px;align-items:flex-start;margin-bottom:16px;justify-content:${role === 'user' ? 'flex-end' : 'flex-start'}`;
+
+  if (role === 'assistant') {
+    const avatar = document.createElement('div');
+    avatar.className = 'ai-avatar';
+    avatar.textContent = '🧠';
+    wrap.appendChild(avatar);
+  }
+
+  const bubble = document.createElement('div');
+  bubble.className = `msg-bubble ${role}`;
+  bubble.style.maxWidth = role === 'user' ? '70%' : 'calc(100% - 42px)';
+
+  if (role === 'user') {
+    bubble.textContent = content;
+  } else {
+    bubble.innerHTML = `<div class="msg-content">${formatAIResponse(content)}</div>`;
+    const saveBtn = document.createElement('button');
+    saveBtn.className = 'msg-save-btn';
+    saveBtn.textContent = '💾 Save Plan';
+    saveBtn.onclick = () => savePlan(content, saveBtn);
+    bubble.appendChild(saveBtn);
+  }
+
+  wrap.appendChild(bubble);
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function formatAIResponse(text) {
+  const lines = text.split('\n');
+  let html = '';
+  let i = 0;
+  while (i < lines.length) {
+    const l = lines[i];
+    if (/^[📍🎯🟢🔵🤝📊📎📚🗂️♿]/.test(l)) {
+      html += `<div class="sdi-field"><span class="sdi-icon">${l[0]}</span><span class="sdi-text">${escHtml(l.slice(l.indexOf(' ') + 1)).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</span></div>`;
+    } else if (l.trim() === '---') {
+      html += '<hr/>';
+    } else if (l.startsWith('## ')) {
+      html += `<h2>${escHtml(l.slice(3))}</h2>`;
+    } else if (l.startsWith('### ')) {
+      html += `<h3>${escHtml(l.slice(4))}</h3>`;
+    } else if (/^[-•] /.test(l)) {
+      html += '<ul>';
+      while (i < lines.length && /^[-•] /.test(lines[i])) {
+        html += `<li>${escHtml(lines[i].slice(2)).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`;
+        i++;
+      }
+      html += '</ul>';
+      continue;
+    } else if (/^\d+\. /.test(l)) {
+      html += '<ol>';
+      while (i < lines.length && /^\d+\. /.test(lines[i])) {
+        html += `<li>${escHtml(lines[i].replace(/^\d+\. /,'')).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</li>`;
+        i++;
+      }
+      html += '</ol>';
+      continue;
+    } else if (l.trim()) {
+      html += `<p>${escHtml(l).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')}</p>`;
+    } else {
+      html += '<br/>';
+    }
+    i++;
+  }
+  return html;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  if (API_URL.includes('YOUR_VERCEL_URL_HERE')) {
+    showToast('⚠ Set your Vercel API URL in the HTML file first');
+    return;
+  }
+
+  input.value = '';
+  activeMode = null;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+
+  renderMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  // typing indicator
+  const msgs = document.getElementById('chat-messages');
+  const typing = document.createElement('div');
+  typing.id = 'typing';
+  typing.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:16px';
+  typing.innerHTML = `<div class="ai-avatar">🧠</div><div class="msg-bubble ai" style="padding:0"><div class="typing-dots"><div class="dot" style="animation-delay:0s"></div><div class="dot" style="animation-delay:.18s"></div><div class="dot" style="animation-delay:.36s"></div></div></div>`;
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  document.getElementById('send-btn').disabled = true;
+
+  try {
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: chatHistory, system: buildSystemPrompt() }),
+    });
+    const data = await res.json();
+    const reply = (data.content || []).find(b => b.type === 'text')?.text || 'No response received.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    typing.remove();
+    renderMessage('assistant', reply);
+  } catch (err) {
+    typing.remove();
+    renderMessage('assistant', '⚠️ Connection error. Please check your internet and verify the API URL is configured correctly.');
+  } finally {
+    document.getElementById('send-btn').disabled = false;
+  }
+}
+
+document.getElementById('chat-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+});
+
+// ══════════════════════════════════════════════
+// SAVED PLANS TAB
+// ══════════════════════════════════════════════
+function savePlan(content, btn) {
+  const unit = document.getElementById('unit-input').value.trim() || 'Untitled Plan';
+  const studentNames = selectedPlannerStudents.map(id => students.find(s => s.id === id)?.name).filter(Boolean);
+  const plan = {
+    id: 'p_' + Date.now(),
+    title: unit,
+    studentIds: [...selectedPlannerStudents],
+    studentNames,
+    content,
+    notes: '',
+    createdAt: Date.now(),
+  };
+  plans.unshift(plan);
+  save();
+  btn.textContent = '✅ Saved!';
+  btn.classList.add('saved');
+  updatePlansBadge();
+  updatePlansFilter();
+  showToast('Plan saved to Saved Plans tab');
+}
+
+function updatePlansBadge() {
+  document.getElementById('tab-badge-plans').textContent = plans.length;
+}
+
+function updatePlansFilter() {
+  const sel = document.getElementById('plans-filter-student');
+  const current = sel.value;
+  sel.innerHTML = '<option value="">All Students</option>' +
+    students.map(s => `<option value="${s.id}" ${current === s.id ? 'selected' : ''}>${s.name}</option>`).join('');
+}
+
+function renderPlans() {
+  const list = document.getElementById('plans-list');
+  const filterStudent = document.getElementById('plans-filter-student').value;
+  const filtered = filterStudent ? plans.filter(p => (p.studentIds || []).includes(filterStudent)) : plans;
+
+  updatePlansBadge();
+
+  if (filtered.length === 0) {
+    list.innerHTML = `<div class="empty-state"><div class="es-icon">📋</div><h3>No saved plans yet</h3><p>Use the SDI Planner tab and click "Save Plan" on any AI response.</p></div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(p => {
+    const date = new Date(p.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const names = (p.studentNames || []).join(', ') || 'General';
+    return `<div class="plan-card">
+      <div class="plan-card-header" onclick="togglePlanCard('${p.id}')">
+        <div class="plan-card-meta">
+          <div class="plan-card-title">📋 ${escHtml(p.title)}</div>
+          <div class="plan-card-sub">👥 ${escHtml(names)} &nbsp;·&nbsp; 📅 ${date}</div>
+        </div>
+        <div class="plan-card-actions" onclick="event.stopPropagation()">
+          <button class="btn btn-outline btn-sm" onclick="exportPlan('${p.id}')">⬇ Word</button>
+          <button class="btn btn-danger btn-sm" onclick="confirmDeletePlan('${p.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="plan-card-body" id="plan-body-${p.id}">
+        <div class="msg-content" style="font-size:.82rem">${formatAIResponse(p.content)}</div>
+        <div class="plan-card-notes">
+          <label>Notes / What happened when you used this plan:</label>
+          <textarea rows="2" placeholder="Add notes after teaching this plan…" onchange="updatePlanNotes('${p.id}',this.value)">${escHtml(p.notes || '')}</textarea>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function togglePlanCard(id) {
+  const body = document.getElementById('plan-body-' + id);
+  body.classList.toggle('open');
+}
+
+function updatePlanNotes(id, notes) {
+  plans = plans.map(p => p.id === id ? { ...p, notes } : p);
+  save();
+}
+
+function confirmDeletePlan(id) {
+  const p = plans.find(x => x.id === id);
+  document.getElementById('confirm-message').textContent = `Delete the plan "${p?.title || 'this plan'}"? This cannot be undone.`;
+  confirmCallback = () => {
+    plans = plans.filter(x => x.id !== id);
+    save();
+    renderPlans();
+    showToast('Plan deleted');
+  };
+  document.getElementById('confirm-action-btn').onclick = () => { confirmCallback(); closeConfirmModal(); };
+  document.getElementById('confirm-modal').style.display = 'flex';
+}
+
+// ══════════════════════════════════════════════
+// PROGRESS LOG TAB
+// ══════════════════════════════════════════════
+function renderProgressStudentList() {
+  const list = document.getElementById('progress-student-list');
+  if (students.length === 0) {
+    list.innerHTML = '<div style="padding:14px;font-size:.72rem;color:#94a3b8;text-align:center">Add students first</div>';
+    return;
+  }
+  list.innerHTML = students.map(s => {
+    const entries = progressLog.filter(e => e.studentId === s.id).length;
+    const isActive = currentProgressStudent === s.id;
+    return `<div class="progress-student-item ${isActive ? 'active' : ''}" onclick="selectProgressStudent('${s.id}')">
+      <div class="psi-name">${s.name}</div>
+      <div class="psi-entries">${entries} entr${entries === 1 ? 'y' : 'ies'}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectProgressStudent(id) {
+  currentProgressStudent = id;
+  renderProgressStudentList();
+  renderProgressDetail();
+}
+
+function renderProgressDetail() {
+  const detail = document.getElementById('progress-detail');
+  if (!currentProgressStudent) {
+    detail.innerHTML = `<div class="empty-state"><div class="es-icon">📊</div><h3>Select a student</h3><p>Choose a student from the left to log progress.</p></div>`;
+    return;
+  }
+  const student = students.find(s => s.id === currentProgressStudent);
+  if (!student) return;
+
+  const entries = progressLog.filter(e => e.studentId === currentProgressStudent).sort((a, b) => b.date.localeCompare(a.date));
+  const goalOptions = (student.goals || []).map((g, i) => `<option value="${i}">${g.area}: ${g.text.slice(0, 60)}${g.text.length > 60 ? '…' : ''}</option>`).join('');
+
+  // Chart data — last 10 numeric entries per goal
+  const numericEntries = entries.filter(e => e.scoreType === 'percent' || e.scoreType === 'trial').slice(0, 10).reverse();
+  const chartHtml = numericEntries.length >= 2 ? `
+    <div class="progress-chart">
+      <div class="chart-title">Progress Trend — Last ${numericEntries.length} Data Points</div>
+      <div class="chart-bars">
+        ${numericEntries.map(e => {
+          const val = e.scoreType === 'percent' ? parseFloat(e.score) : (parseFloat(e.score.split('/')[0]) / parseFloat(e.score.split('/')[1])) * 100;
+          const pct = Math.min(100, Math.max(0, val || 0));
+          return `<div class="chart-bar-wrap">
+            <div class="chart-val">${e.score}</div>
+            <div class="chart-bar" style="height:${pct}%"></div>
+            <div class="chart-label">${e.date.slice(5)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
+  detail.innerHTML = `
+    <!-- Log entry form -->
+    <div class="log-entry-form card" style="padding:18px">
+      <div class="section-title">Log New Data Point — ${student.name}</div>
+      <div class="log-form-grid">
+        <div class="form-group">
+          <label>Date</label>
+          <input type="date" id="log-date" value="${new Date().toISOString().slice(0,10)}"/>
+        </div>
+        <div class="form-group">
+          <label>IEP Goal</label>
+          <select id="log-goal">${goalOptions || '<option value="">No goals — add in Caseload tab</option>'}</select>
+        </div>
+        <div class="form-group">
+          <label>Score Type</label>
+          <select id="log-score-type" onchange="updateScoreInput()">
+            <option value="percent">Percentage (e.g. 80%)</option>
+            <option value="trial">Trial-based (e.g. 4/5)</option>
+            <option value="observation">Observation (+/- / Emerging)</option>
+            <option value="rubric">Rubric Score (e.g. 3/4)</option>
+            <option value="frequency">Frequency Count (e.g. 3 times)</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label id="score-label">Score / Result</label>
+          <input type="text" id="log-score" placeholder="e.g. 80%"/>
+        </div>
+        <div class="form-group span2">
+          <label>Notes / Observations</label>
+          <textarea id="log-notes" rows="2" placeholder="What did you notice? What worked? What needs adjustment?"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;justify-content:flex-end">
+        <button class="btn btn-green" onclick="addProgressEntry()">+ Log Data Point</button>
+      </div>
+    </div>
+
+    ${chartHtml}
+
+    <!-- Entries list -->
+    <div>
+      <div class="section-title">${entries.length} Log Entr${entries.length === 1 ? 'y' : 'ies'}</div>
+      ${entries.length === 0
+        ? '<div style="text-align:center;color:#94a3b8;font-size:.8rem;padding:20px">No entries yet — log data above</div>'
+        : `<div class="log-entries-list">${entries.map(e => {
+            const goal = (student.goals || [])[parseInt(e.goalIndex)];
+            return `<div class="log-entry">
+              <div class="le-date">${new Date(e.date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</div>
+              <div class="le-body">
+                <div class="le-goal">${goal ? goal.area : 'Goal'}</div>
+                <div class="le-score">${e.score} <span style="font-size:.68rem;color:#94a3b8;font-weight:400">(${e.scoreType})</span></div>
+                ${e.notes ? `<div class="le-notes">${escHtml(e.notes)}</div>` : ''}
+              </div>
+              <button class="le-delete" onclick="deleteProgressEntry('${e.id}')" title="Delete">✕</button>
+            </div>`;
+          }).join('')}</div>`
+      }
+    </div>`;
+}
+
+function updateScoreInput() {
+  const type = document.getElementById('log-score-type').value;
+  const label = document.getElementById('score-label');
+  const input = document.getElementById('log-score');
+  const placeholders = {
+    percent: ['Percentage', 'e.g. 80%'],
+    trial: ['Trials Correct', 'e.g. 4/5'],
+    observation: ['Observation', 'e.g. + or - or Emerging'],
+    rubric: ['Rubric Score', 'e.g. 3/4'],
+    frequency: ['Frequency Count', 'e.g. 3 times'],
+  };
+  const [lbl, ph] = placeholders[type] || ['Score', ''];
+  label.textContent = lbl;
+  input.placeholder = ph;
+}
+
+function addProgressEntry() {
+  if (!currentProgressStudent) return;
+  const date = document.getElementById('log-date').value;
+  const goalIndex = document.getElementById('log-goal').value;
+  const scoreType = document.getElementById('log-score-type').value;
+  const score = document.getElementById('log-score').value.trim();
+  const notes = document.getElementById('log-notes').value.trim();
+  if (!date || !score) { showToast('Please enter a date and score'); return; }
+
+  progressLog.push({
+    id: 'e_' + Date.now(),
+    studentId: currentProgressStudent,
+    date,
+    goalIndex,
+    scoreType,
+    score,
+    notes,
+    createdAt: Date.now(),
+  });
+  save();
+  renderProgressStudentList();
+  renderProgressDetail();
+  showToast('Data point logged');
+}
+
+function deleteProgressEntry(id) {
+  progressLog = progressLog.filter(e => e.id !== id);
+  save();
+  renderProgressStudentList();
+  renderProgressDetail();
+}
+
+// ══════════════════════════════════════════════
+// WORD EXPORT (docx via Blob)
+// ══════════════════════════════════════════════
+function textToDocxXml(text, title) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines = text.split('\n');
+  let bodyXml = '';
+
+  // Title
+  bodyXml += `<w:p><w:pPr><w:pStyle w:val="Heading1"/></w:pPr><w:r><w:t>${esc(title)}</w:t></w:r></w:p>`;
+  bodyXml += `<w:p><w:r><w:t>Generated by TeacherOS SDI Case Manager — ${new Date().toLocaleDateString()}</w:t></w:r></w:p>`;
+  bodyXml += `<w:p><w:r><w:t> </w:t></w:r></w:p>`;
+
+  for (const line of lines) {
+    if (!line.trim()) {
+      bodyXml += `<w:p><w:r><w:t> </w:t></w:r></w:p>`;
+    } else if (line.startsWith('## ')) {
+      bodyXml += `<w:p><w:pPr><w:pStyle w:val="Heading2"/></w:pPr><w:r><w:t>${esc(line.slice(3))}</w:t></w:r></w:p>`;
+    } else if (line.startsWith('### ')) {
+      bodyXml += `<w:p><w:pPr><w:pStyle w:val="Heading3"/></w:pPr><w:r><w:t>${esc(line.slice(4))}</w:t></w:r></w:p>`;
+    } else if (line.trim() === '---') {
+      bodyXml += `<w:p><w:pPr><w:pBdr><w:bottom w:val="single" w:sz="4" w:space="1" w:color="C7D2FE"/></w:pBdr></w:pPr></w:p>`;
+    } else if (/^[-•] /.test(line)) {
+      bodyXml += `<w:p><w:pPr><w:numPr><w:ilvl w:val="0"/><w:numId w:val="1"/></w:numPr></w:pPr><w:r><w:t>${esc(line.slice(2))}</w:t></w:r></w:p>`;
+    } else if (/^[📍🎯🟢🔵🤝📊📎📚🗂️♿▸]/.test(line)) {
+      // SDI field — bold label
+      bodyXml += `<w:p><w:pPr><w:ind w:left="360"/><w:shd w:val="clear" w:color="auto" w:fill="EEF2FF"/></w:pPr><w:r><w:rPr><w:b/><w:color w:val="4338CA"/></w:rPr><w:t xml:space="preserve">${esc(line[0])} </w:t></w:r><w:r><w:t>${esc(line.slice(line.indexOf(' ')+1))}</w:t></w:r></w:p>`;
+    } else {
+      // Parse **bold** inline
+      const parts = line.split(/(\*\*[^*]+\*\*)/g);
+      let runXml = '';
+      for (const part of parts) {
+        if (part.startsWith('**') && part.endsWith('**')) {
+          runXml += `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">${esc(part.slice(2,-2))}</w:t></w:r>`;
+        } else {
+          runXml += `<w:r><w:t xml:space="preserve">${esc(part)}</w:t></w:r>`;
+        }
+      }
+      bodyXml += `<w:p>${runXml}</w:p>`;
+    }
+  }
+
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:wpc="http://schemas.microsoft.com/office/word/2010/wordprocessingCanvas"
+  xmlns:cx="http://schemas.microsoft.com/office/drawing/2014/chartex"
+  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+  xmlns:aink="http://schemas.microsoft.com/office/drawing/2016/ink"
+  xmlns:am3d="http://schemas.microsoft.com/office/drawing/2017/model3d"
+  xmlns:o="urn:schemas-microsoft-com:office:office"
+  xmlns:oel="http://schemas.microsoft.com/office/2019/extlst"
+  xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+  xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math"
+  xmlns:v="urn:schemas-microsoft-com:vml"
+  xmlns:wp14="http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing"
+  xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
+  xmlns:w10="urn:schemas-microsoft-com:office:word"
+  xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+  xmlns:w14="http://schemas.microsoft.com/office/word/2010/wordml"
+  xmlns:w15="http://schemas.microsoft.com/office/word/2012/wordml"
+  xmlns:w16cex="http://schemas.microsoft.com/office/word/2018/wordml/cex"
+  xmlns:w16cid="http://schemas.microsoft.com/office/word/2016/wordml/cid"
+  xmlns:w16="http://schemas.microsoft.com/office/word/2018/wordml"
+  xmlns:w16sdtdh="http://schemas.microsoft.com/office/word/2020/wordml/sdtdatahash"
+  xmlns:w16se="http://schemas.microsoft.com/office/word/2015/wordml/symex"
+  xmlns:wpg="http://schemas.microsoft.com/office/word/2010/wordprocessingGroup"
+  xmlns:wpi="http://schemas.microsoft.com/office/word/2010/wordprocessingInk"
+  xmlns:wne="http://schemas.microsoft.com/office/word/2006/wordml"
+  xmlns:wps="http://schemas.microsoft.com/office/word/2010/wordprocessingShape"
+  mc:Ignorable="w14 w15 w16se w16cid w16 w16cex w16sdtdh wp14">
+  <w:body>
+    ${bodyXml}
+    <w:sectPr>
+      <w:pgSz w:w="12240" w:h="15840"/>
+      <w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/>
+    </w:sectPr>
+  </w:body>
+</w:document>`;
+}
+
+function buildDocxBlob(documentXml) {
+  // Minimal .docx structure as data URIs
+  const styles = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:style w:type="paragraph" w:styleId="Normal"><w:name w:val="Normal"/>
+    <w:rPr><w:sz w:val="22"/><w:szCs w:val="22"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading1"><w:name w:val="heading 1"/>
+    <w:pPr><w:outlineLvl w:val="0"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="1E1B4B"/><w:sz w:val="36"/><w:szCs w:val="36"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading2"><w:name w:val="heading 2"/>
+    <w:pPr><w:outlineLvl w:val="1"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="4338CA"/><w:sz w:val="28"/><w:szCs w:val="28"/></w:rPr></w:style>
+  <w:style w:type="paragraph" w:styleId="Heading3"><w:name w:val="heading 3"/>
+    <w:pPr><w:outlineLvl w:val="2"/></w:pPr>
+    <w:rPr><w:b/><w:color w:val="374151"/><w:sz w:val="22"/></w:rPr></w:style>
+</w:styles>`;
+
+  const numbering = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+  <w:abstractNum w:abstractNumId="0">
+    <w:lvl w:ilvl="0"><w:start w:val="1"/><w:numFmt w:val="bullet"/>
+      <w:lvlText w:val="•"/><w:lvlJc w:val="left"/>
+      <w:pPr><w:ind w:left="720" w:hanging="360"/></w:pPr></w:lvl>
+  </w:abstractNum>
+  <w:num w:numId="1"><w:abstractNumId w:val="0"/></w:num>
+</w:numbering>`;
+
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/numbering" Target="numbering.xml"/>
+</Relationships>`;
+
+  const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+  <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
+  <Override PartName="/word/numbering.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"/>
+</Types>`;
+
+  // Build zip manually using a tiny base64 zip encoder
+  const files = {
+    '[Content_Types].xml': contentTypes,
+    '_rels/.rels': docRels,
+    'word/document.xml': documentXml,
+    'word/styles.xml': styles,
+    'word/numbering.xml': numbering,
+    'word/_rels/document.xml.rels': rels,
+  };
+
+  // Use JSZip-like approach via Blob + custom zip
+  // Since we can't import JSZip in a plain HTML file, we use a minimal zip builder
+  return buildZip(files);
+}
+
+function buildZip(files) {
+  // Minimal ZIP builder (no compression — store only)
+  const encoder = new TextEncoder();
+  const parts = [];
+  const centralDir = [];
+  let offset = 0;
+
+  for (const [name, content] of Object.entries(files)) {
+    const nameBytes = encoder.encode(name);
+    const dataBytes = encoder.encode(content);
+    const crc = crc32(dataBytes);
+    const date = 0x5270, time = 0x0000; // fixed date
+
+    // Local file header
+    const local = new Uint8Array(30 + nameBytes.length);
+    const lv = new DataView(local.buffer);
+    lv.setUint32(0, 0x04034b50, true); // signature
+    lv.setUint16(4, 20, true);         // version needed
+    lv.setUint16(6, 0, true);          // flags
+    lv.setUint16(8, 0, true);          // compression (store)
+    lv.setUint16(10, time, true);
+    lv.setUint16(12, date, true);
+    lv.setUint32(14, crc, true);
+    lv.setUint32(18, dataBytes.length, true);
+    lv.setUint32(22, dataBytes.length, true);
+    lv.setUint16(26, nameBytes.length, true);
+    lv.setUint16(28, 0, true);
+    local.set(nameBytes, 30);
+
+    // Central directory entry
+    const central = new Uint8Array(46 + nameBytes.length);
+    const cv = new DataView(central.buffer);
+    cv.setUint32(0, 0x02014b50, true);
+    cv.setUint16(4, 20, true);
+    cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true);
+    cv.setUint16(10, 0, true);
+    cv.setUint16(12, time, true);
+    cv.setUint16(14, date, true);
+    cv.setUint32(16, crc, true);
+    cv.setUint32(20, dataBytes.length, true);
+    cv.setUint32(24, dataBytes.length, true);
+    cv.setUint16(28, nameBytes.length, true);
+    cv.setUint16(30, 0, true);
+    cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true);
+    cv.setUint16(36, 0, true);
+    cv.setUint32(38, 0, true);
+    cv.setUint32(42, offset, true);
+    central.set(nameBytes, 46);
+
+    parts.push(local, dataBytes);
+    centralDir.push(central);
+    offset += local.length + dataBytes.length;
+  }
+
+  const cdSize = centralDir.reduce((a, b) => a + b.length, 0);
+  const eocd = new Uint8Array(22);
+  const ev = new DataView(eocd.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(4, 0, true);
+  ev.setUint16(6, 0, true);
+  ev.setUint16(8, centralDir.length, true);
+  ev.setUint16(10, centralDir.length, true);
+  ev.setUint32(12, cdSize, true);
+  ev.setUint32(16, offset, true);
+  ev.setUint16(20, 0, true);
+
+  const all = [...parts, ...centralDir, eocd];
+  const total = all.reduce((a, b) => a + b.length, 0);
+  const result = new Uint8Array(total);
+  let pos = 0;
+  for (const part of all) { result.set(part, pos); pos += part.length; }
+  return new Blob([result], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+}
+
+function crc32(data) {
+  let crc = -1;
+  for (let i = 0; i < data.length; i++) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ data[i]) & 0xFF];
+  }
+  return (crc ^ -1) >>> 0;
+}
+
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let j = 0; j < 8; j++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[i] = c;
+  }
+  return t;
+})();
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function exportPlan(id) {
+  const plan = plans.find(p => p.id === id);
+  if (!plan) return;
+  const docXml = textToDocxXml(plan.content, plan.title + (plan.studentNames?.length ? ' — ' + plan.studentNames.join(', ') : ''));
+  const blob = buildDocxBlob(docXml);
+  downloadBlob(blob, `SDI-Plan-${plan.title.replace(/[^a-z0-9]/gi,'_').slice(0,40)}.docx`);
+  showToast('Downloading Word doc…');
+}
+
+function exportAllPlans() {
+  if (plans.length === 0) { showToast('No plans to export'); return; }
+  const combined = plans.map(p =>
+    `## ${p.title}${p.studentNames?.length ? ' — ' + p.studentNames.join(', ') : ''}\n\n${p.content}${p.notes ? '\n\n**Post-Teaching Notes:** ' + p.notes : ''}`
+  ).join('\n\n---\n\n');
+  const docXml = textToDocxXml(combined, 'TeacherOS — All SDI Plans');
+  const blob = buildDocxBlob(docXml);
+  downloadBlob(blob, `TeacherOS-All-Plans-${new Date().toISOString().slice(0,10)}.docx`);
+  showToast('Downloading all plans…');
+}
+
+function exportProgressReport() {
+  if (students.length === 0) { showToast('No students to export'); return; }
+  let text = 'TEACHEROS SDI — PROGRESS MONITORING REPORT\n';
+  text += `Generated: ${new Date().toLocaleDateString()}\n\n`;
+
+  for (const student of students) {
+    const entries = progressLog.filter(e => e.studentId === student.id).sort((a,b) => a.date.localeCompare(b.date));
+    text += `## ${student.name}\n`;
+    if (student.disability) text += `Disability: ${student.disability}\n`;
+    if (student.reviewDate) text += `Annual Review: ${new Date(student.reviewDate + 'T12:00').toLocaleDateString()}\n`;
+    text += '\n';
+
+    (student.goals || []).forEach((g, gi) => {
+      text += `### Goal ${gi + 1}: ${g.area}\n${g.text}\n\nProgress Data:\n`;
+      const goalEntries = entries.filter(e => e.goalIndex == gi);
+      if (goalEntries.length === 0) {
+        text += 'No data logged yet.\n';
+      } else {
+        goalEntries.forEach(e => {
+          text += `- ${e.date}: ${e.score} (${e.scoreType})${e.notes ? ' — ' + e.notes : ''}\n`;
+        });
+      }
+      text += '\n';
+    });
+    text += '---\n\n';
+  }
+
+  const docXml = textToDocxXml(text, 'Progress Monitoring Report');
+  const blob = buildDocxBlob(docXml);
+  downloadBlob(blob, `TeacherOS-Progress-Report-${new Date().toISOString().slice(0,10)}.docx`);
+  showToast('Downloading progress report…');
+}
+
+// ══════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════
+function showToast(msg) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 2800);
+}
+
+// ══════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════
+load();
+renderCaseload();
+updatePlansBadge();
+updatePlansFilter();
+checkAPI();
+</script>
+</body>
+</html>
