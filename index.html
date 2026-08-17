@@ -481,34 +481,59 @@ document.querySelectorAll('.tab').forEach(t => {
 // ══════════════════════════════════════════════
 // API STATUS CHECK
 // ══════════════════════════════════════════════
-async function checkAPI() {
-  const dot = document.getElementById('api-dot');
-  const label = document.getElementById('api-label');
-  if (API_URL.includes('YOUR_VERCEL_URL_HERE')) {
-    dot.className = 'api-dot warn';
-    label.textContent = 'API not configured';
-    return;
-  }
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  activeMode = null;
+  document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+
+  renderMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  const msgs = document.getElementById('chat-messages');
+  const typing = document.createElement('div');
+  typing.id = 'typing';
+  typing.style.cssText = 'display:flex;gap:8px;align-items:flex-start;margin-bottom:16px';
+  typing.innerHTML = `<div class="ai-avatar">🧠</div><div class="msg-bubble ai" style="padding:0"><div class="typing-dots"><div class="dot" style="animation-delay:0s"></div><div class="dot" style="animation-delay:.18s"></div><div class="dot" style="animation-delay:.36s"></div></div></div>`;
+  msgs.appendChild(typing);
+  msgs.scrollTop = msgs.scrollHeight;
+
+  document.getElementById('send-btn').disabled = true;
+
   try {
-    const r = await fetch(API_URL, {
+    const res = await fetch(API_URL, {
       method: 'POST',
+      mode: 'cors',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], system: 'Reply with: ok' }),
+      body: JSON.stringify({ messages: chatHistory, system: buildSystemPrompt() }),
     });
-    const data = await r.json();
-    if (data.content || data.type === 'message') {
-      dot.className = 'api-dot';
-      label.textContent = 'AI connected';
-    } else if (data.error) {
-      dot.className = 'api-dot err';
-      label.textContent = 'API error';
-    } else {
-      dot.className = 'api-dot';
-      label.textContent = 'AI connected';
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({ error: res.statusText }));
+      typing.remove();
+      renderMessage('assistant', `⚠️ Server error ${res.status}: ${JSON.stringify(errData)}`);
+      return;
     }
-  } catch (e) {
-    dot.className = 'api-dot warn';
-    label.textContent = 'Status unknown';
+
+    const data = await res.json();
+    const reply = (data.content || []).find(b => b.type === 'text')?.text || 'No response received.';
+    chatHistory.push({ role: 'assistant', content: reply });
+    typing.remove();
+    renderMessage('assistant', reply);
+
+    const dot = document.getElementById('api-dot');
+    const label = document.getElementById('api-label');
+    dot.className = 'api-dot';
+    label.textContent = 'AI connected';
+
+  } catch (err) {
+    typing.remove();
+    renderMessage('assistant', `⚠️ Fetch error: ${err.message}. URL: ${API_URL}`);
+  } finally {
+    document.getElementById('send-btn').disabled = false;
   }
 }
 // ══════════════════════════════════════════════
