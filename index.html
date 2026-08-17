@@ -490,16 +490,27 @@ async function checkAPI() {
     return;
   }
   try {
-    const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], system: 'Reply with: ok' }) });
-    if (r.ok) { dot.className = 'api-dot'; label.textContent = 'AI connected'; }
-    else { dot.className = 'api-dot err'; label.textContent = 'API error'; }
-  } catch {
-    dot.className = 'api-dot err';
-    label.textContent = 'Cannot reach API';
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'ping' }], system: 'Reply with: ok' }),
+    });
+    const data = await r.json();
+    if (data.content || data.type === 'message') {
+      dot.className = 'api-dot';
+      label.textContent = 'AI connected';
+    } else if (data.error) {
+      dot.className = 'api-dot err';
+      label.textContent = 'API error';
+    } else {
+      dot.className = 'api-dot';
+      label.textContent = 'AI connected';
+    }
+  } catch (e) {
+    dot.className = 'api-dot warn';
+    label.textContent = 'Status unknown';
   }
 }
-
 // ══════════════════════════════════════════════
 // STUDENT HELPERS
 // ══════════════════════════════════════════════
